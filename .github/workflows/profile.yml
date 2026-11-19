@@ -1,0 +1,55 @@
+# Redraws the live cards (stats, streak, contribution year, featured repos) and the README.
+# Runs every 6 hours, when you change the config or scripts, and by hand from the Actions tab.
+name: profile
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "profile.config.json"
+      - "scripts/**"
+      - ".github/workflows/profile.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: profile
+  cancel-in-progress: true
+
+jobs:
+  cards:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - run: pip install fonttools
+
+      - name: Draw the live cards
+        run: python scripts/live.py
+        env:
+          # PROFILE_TOKEN is optional: a read-only fine-grained token that also counts private and team work.
+          PROFILE_TOKEN: ${{ secrets.PROFILE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Redraw the art that comes from the config (banner, typing line, about tiles, ...)
+        run: python scripts/art.py
+
+      - name: Write the README from the config
+        run: python scripts/readme.py
+
+      - name: Commit if anything changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets generated README.md
+          git diff --cached --quiet && echo "Nothing new." && exit 0
+          git commit -m "chore(profile): refresh cards"
+          git push

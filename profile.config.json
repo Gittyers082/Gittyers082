@@ -1,0 +1,41 @@
+{
+  "user": "Gittyers082",
+  "name": "El. Steven D. Cruz",
+  "episode": "EPISODE 01 · THE CHARACTER",
+  "tagline": "FULL-STACK TODAY. AI ENGINEERING NEXT.",
+
+  "typing": [
+    "full-stack today. AI engineering next.",
+    "building SecondServe with my team",
+    "learning RAG, properly this time",
+    "writing lore between commits"
+  ],
+
+  "about": [
+    { "key": "working_on",   "value": "SecondServe",    "note": "Surplus-food marketplace, I lead the backend" },
+    { "key": "learning",     "value": "AI engineering", "note": "Starting with my first RAG app", "highlight": true },
+    { "key": "class",        "value": "3rd-year IT",    "note": "Saint Louis University, Baguio" },
+    { "key": "ask_me_about", "value": "Java & lore",    "note": "First language, and power systems" },
+    { "key": "open_to",      "value": "Collaborations",   "note": "I'm open to collaborating on interesting projects." },
+    { "key": "fun_fact",     "value": "Ex tech boomer", "note": "Before college, tech and I were not friends" }
+  ],
+
+  "featured": [
+    { "repo": "webapp-secondserve", "role": "backend lead", "fallback": "Surplus-food marketplace for IT313. Pickup-only listings, built with my team." },
+    { "repo": "my-first-rag",       "role": "solo",         "fallback": "I just learned RAG!" },
+    { "repo": "thriftbite",         "role": "upgrading",    "fallback": "Old team project, now getting a proper upgrade. [Stack]" },
+    { "repo": "my-portfolio",       "role": "solo",         "fallback": "The comic-style portfolio this profile matches. El lives here." }
+  ],
+
+  "links": {
+    "portfolio": "[YOUR-PORTFOLIO-URL]",
+    "linkedin": "https://www.linkedin.com/in/[YOUR-LINKEDIN]",
+    "fiverr": "https://www.fiverr.com/[YOUR-FIVERR]",
+    "email": "dcruzsteven@gmail.com"
+  },
+
+  "stack": {
+    "languages": "java,python,ts,js,kotlin,elixir,rust",
+    "tools": "astro,react,fastapi,spring,supabase,postgres,docker,git"
+  }
+}
