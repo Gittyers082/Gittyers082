@@ -82,6 +82,8 @@ def fetch(cfg: dict, token: str) -> dict:
     # featured repos, one aliased query; "owner/name" or just "name" (yours)
     parts = []
     for i, f in enumerate(cfg["featured"]):
+        if f.get("upcoming"):
+            continue
         owner, _, name = f["repo"].rpartition("/")
         parts.append(f'r{i}: repository(owner: {json.dumps(owner or user)}, name: {json.dumps(name)}) {{{REPO_FIELDS}}}')
     repos = gql("query {" + "\n".join(parts) + "}", {}, token) if parts else {}
@@ -113,6 +115,9 @@ def sample(cfg: dict) -> dict:
     repos = []
     for i, f in enumerate(cfg["featured"]):
         owner, _, name = f["repo"].rpartition("/")
+        if f.get("upcoming"):
+            repos.append(None)
+            continue
         repos.append(dict(name=name, nameWithOwner=f"{owner or cfg['user']}/{name}", description=None,
                           url=f"https://github.com/{owner or cfg['user']}/{name}", isPrivate=False,
                           owner={"login": owner or cfg["user"]},
@@ -311,9 +316,10 @@ def repo_card(theme, repo, featured, i, user):
     shadow = c["accent"] if i == 0 else c["ink"]
     body = sh(c, 0, 0, w, h, shadow)
     body += f'<rect x="1.25" y="1.25" width="{w - 2.5}" height="{h - 2.5}" fill="{c["paper"]}" stroke="{c["ink"]}" stroke-width="2.5"/>'
-    if not repo:
+    if featured.get("upcoming") or not repo:
         name = featured["repo"].rpartition("/")[2]
-        desc, lang, color, msg, when, tag = featured.get("fallback", ""), "", c["muted"], "", "not found yet", "Repo"
+        desc, lang, color, msg = featured.get("fallback", ""), "", c["muted"], ""
+        when, tag = ("repo coming soon", "Soon") if featured.get("upcoming") else ("repo not found", "Repo")
     else:
         name = repo["name"]
         desc = repo.get("description") or featured.get("fallback", "")
@@ -322,7 +328,7 @@ def repo_card(theme, repo, featured, i, user):
         tgt = ((repo.get("defaultBranchRef") or {}).get("target") or {})
         msg = tgt.get("messageHeadline", "")
         when = ago(repo["pushedAt"]) if repo.get("pushedAt") else ""
-        tag = "Private" if repo.get("isPrivate") else ("Team" if repo["owner"]["login"].lower() != user.lower() else "Public")
+        tag = featured.get("tag") or ("Private" if repo.get("isPrivate") else ("Team" if repo["owner"]["login"].lower() != user.lower() else "Public"))
     name_s = fit(name, 16, w - 120, wght=700)
     body += text(name_s, 18, 32, 16, c["accent"], wght=700)
     tx = 18 + text_width(name_s, 16, 700) + 10
@@ -331,6 +337,9 @@ def repo_card(theme, repo, featured, i, user):
     body += text(tag, tx + tw / 2, 31.5, 11.5, c["muted"], wght=500, anchor="middle")
     for j, line in enumerate(wrap(desc, 13, w - 36, 2, wght=400)):
         body += text(line, 18, 60 + j * 19, 13, c["ink"], wght=400)
+    if not msg and featured.get("upcoming"):
+        body += f'<rect x="18" y="98" width="{w - 36}" height="26" fill="none" stroke="{c["ink"]}" stroke-width="2" stroke-dasharray="6 5"/>'
+        body += text("$ git init  # soon", 28, 115.5, 11.5, c["muted"], mono=True)
     if msg:
         body += f'<rect x="18" y="98" width="{w - 36}" height="26" fill="{c["ink"]}"/>'
         body += text("$", 28, 115.5, 11.5, c["on_ink_accent"], mono=True, bold=True)

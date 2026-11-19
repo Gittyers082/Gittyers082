@@ -175,59 +175,137 @@ def commit(theme: str, cfg: dict) -> str:
 
 # ---------------------------------------------------------------- dodge.exe
 
+# Same scene as the portfolio's Runner.astro (El from the side, spiky hair, hopping over errors).
+# The portfolio runs it with JavaScript; here it's one precomputed loop in CSS.
+RUN_HEAD = "M13 12 C13 5 18 1 24 1 L23 -7 L28 -1 L31 -9 L33 0 L38 -5 L37 4 C39 7 39 15 36 19 C33 23 27 24 22 23 C16 22 13 18 13 12 Z"
+CLOUD = "q8 -10 18 -4 q8 -8 16 2 q8 0 8 8 h-46 q0 -8 4 -6z"
+
+
+def _bug(label: str, c: dict) -> tuple[str, float]:
+    if label == "!":
+        return (f'<path d="M13 0 L26 24 L0 24 Z" fill="{c["paper"]}" stroke="{c["ink"]}" stroke-width="2.5" stroke-linejoin="round"/>'
+                f'<path d="M13 8 V15" stroke="{c["ink"]}" stroke-width="2.6" stroke-linecap="round"/>'
+                f'<circle cx="13" cy="19.5" r="1.6" fill="{c["ink"]}"/>'), 26
+    w = max(26, len(label) * 8 + 14)
+    return (f'<rect x="0" y="0" width="{w}" height="24" rx="3" fill="{c["paper"]}" stroke="{c["ink"]}" stroke-width="2.5"/>'
+            + text(label, w / 2, 16.5, 11, c["ink"], wght=700, anchor="middle")), w
+
+
 def dodge(theme: str, cfg: dict) -> str:
     c = PALETTES[theme]
-    cols, ground, rx, size, lh = 84, 5, 8, 15, 18.5
-    cw = size * MONO_ADV
-    labels = ["ERR", "404", "NaN", "null", "TODO", "}"]
-    spacing, period = 23, 92            # obstacles 23 cols apart; the loop is 92 frames
-    frames = []
-    for t in range(period):
-        grid = [[" "] * cols for _ in range(6)]
-        hot = [[False] * cols for _ in range(6)]
-        for x in range(cols):
-            grid[ground][x] = "." if (x + t) % 9 == 0 else "_"
-        obs = []
-        for i in range(4):
-            x = cols - ((t + i * spacing) % period)
-            lab = labels[(i + (t + i * spacing) // period) % len(labels)]
-            obs.append(x)
-            for j, ch in enumerate(lab):
-                if 0 <= x + j < cols:
-                    grid[ground - 1][x + j] = ch
-                    hot[ground - 1][x + j] = True
-        near = any(rx - 2 <= x <= rx + 4 for x in obs)
-        lift = 2 if near else 0
-        legs = "/ \\" if near else ("/ >" if t % 2 else "< \\")
-        for r, s in enumerate([" o ", "/|\\", legs]):
-            y = ground - 3 + r - lift
-            for j, ch in enumerate(s):
-                if ch != " " and y >= 0:
-                    grid[y][rx + j] = ch
-        frames.append((grid, hot))
-    fx, fy = 28, 58
-    body = panel(c, 0, 0, W - 14, 186, "dodge.exe", "> survive the bugs", uid="dg")
-    from html import escape
-    for i, (grid, hot) in enumerate(frames):
-        rows = []
-        for y in range(6):
-            spans, cur, h0 = [], "", None
-            for x in range(cols):
-                h = hot[y][x]
-                if h0 is None or h == h0:
-                    cur += grid[y][x]
-                else:
-                    spans.append((cur, h0)); cur = grid[y][x]
-                h0 = h
-            spans.append((cur, h0))
-            inner = "".join(f'<tspan class="h">{escape(s)}</tspan>' if hh else escape(s) for s, hh in spans)
-            rows.append(f'<text x="{fx}" y="{fy + y * lh:.1f}">{inner}</text>')
-        body += f'<g class="f f{i}">{"".join(rows)}</g>'
-    css = (
-        f"text{{font-family:{MONO_STACK};font-size:{size}px;white-space:pre;fill:{c['ink']}}}"
-        f".h{{fill:{c['accent']};font-weight:700}}" + frames_css(len(frames), 0.11)
+    VW, VH = 560, 150                      # the scene, in the portfolio's units (its screen is 400 wide)
+    GUY_X, GUY_W, GROUND_Y = 52, 42, 128
+    SPEED, JUMP_T, PEAK = 170, 0.72, 64.8   # same physics as footer.ts: 360 up, 1000 gravity
+    L = 3400                               # one loop of track
+    T = L / SPEED                          # 20 s
+    seq = [("ERR", 0), ("404", 300), ("!", 640), ("NaN", 900), ("TODO", 1260),
+           ("}", 1560), ("null", 1880), ("ERR", 2240), ("!", 2520), ("404", 2860)]
+    start = VW + 20
+    # track: two copies so the screen is never empty at the seam
+    track, passes, jumps = "", [], []
+    for label, off in seq:
+        g, w = _bug(label, c)
+        for k in (-1, 0):
+            x = start + off + k * L
+            track += f'<g transform="translate({x} {GROUND_Y - 24})">{g}</g>'
+        x0 = start + off
+        passes.append(((x0 + w - GUY_X) / SPEED) % T)
+        jumps.append(((x0 - (GUY_X + GUY_W + 20)) / SPEED) % T)
+    pct = lambda t: f"{t / T * 100:.3f}%"
+    # El's jump: up with ease-out, down with ease-in, same arc as the portfolio
+    kf = ["0%{transform:translateY(0)}"]
+    for j in sorted(jumps):
+        kf.append(f"{pct(j)}{{transform:translateY(0);animation-timing-function:cubic-bezier(.33,1,.68,1)}}")
+        kf.append(f"{pct(j + JUMP_T / 2)}{{transform:translateY(-{PEAK}px);animation-timing-function:cubic-bezier(.32,0,.67,0)}}")
+        kf.append(f"{pct(j + JUMP_T)}{{transform:translateY(0)}}")
+    kf.append("100%{transform:translateY(0)}")
+    # the score: one label per count, each shown between two passes
+    order = sorted(passes)
+    score_g, score_css = "", ""
+    bounds = [0.0] + order + [T]
+    for n in range(len(order) + 1):
+        a, b = bounds[n], bounds[n + 1]
+        if b - a < 0.01:
+            continue
+        vis = (f"0%{{visibility:{'visible' if a == 0 else 'hidden'}}}"
+               + (f"{pct(a)}{{visibility:visible}}" if a > 0 else "")
+               + f"{pct(b)}{{visibility:hidden}}100%{{visibility:hidden}}")
+        score_css += f".n{n}{{animation:n{n} {T:.2f}s steps(1,end) infinite}}@keyframes n{n}{{{vis}}}"
+        score_g += f'<g class="n n{n}">' + text(f"{n:03d}", 0, 0, 13, c["on_panel"], mono=True, bold=True) + "</g>"
+
+    # layout: bar on top, screen below, caption under it
+    S = (W - 14 - 6) / VW                  # scale the 800-wide scene into the panel
+    bar_h, sx, sy = 34, 3, 34
+    screen_h = VH * S
+    h = sy + screen_h + 3
+    clouds = "".join(f'<path d="M{x} 34 {CLOUD}"/><path d="M{x + 200} 22 {CLOUD}"/>' for x in range(60, 2 * VW + 400, 400))
+    dashes = "".join(f"M{x + 10} 138 h8 M{x + 40} 136 h4 M{x + 25} 141 h6 " for x in range(0, VW + 120, 60))
+    guy = (f'<g class="guy"><g transform="translate({GUY_X} 74)">'
+           f'<path d="{RUN_HEAD}" fill="{c["ink"]}"/><circle cx="31.5" cy="12" r="2.1" fill="{c["paper"]}"/>'
+           f'<rect x="17" y="26" width="15" height="17" rx="4" fill="{c["ink"]}"/>'
+           f'<path d="M26 30 L37 36" stroke="{c["ink"]}" stroke-width="4.5" stroke-linecap="round"/>'
+           f'<g class="la" stroke="{c["ink"]}" stroke-width="5" stroke-linecap="round" fill="none"><path d="M21 43 L14 54"/><path d="M28 43 L36 53"/></g>'
+           f'<g class="lb" stroke="{c["ink"]}" stroke-width="5" stroke-linecap="round" fill="none"><path d="M22 43 L21 54"/><path d="M27 43 L30 54"/></g>'
+           f"</g></g>")
+    score_label = "bugs dodged "
+    score_x = W - 14 - 14 - 13 * MONO_ADV * 3
+    body = (
+        f'<rect x="0" y="0" width="{W - 14}" height="{bar_h}" fill="{c["panel_bg"]}"/>'
+        + text("dodge.exe", 14, 22, 13, c["on_panel"], wght=700)
+        + text(score_label, score_x - 6, 22, 13, c["on_panel"], wght=500, anchor="end")
+        + f'<g transform="translate({score_x:.1f} 22)">{score_g}</g>'
+        + f'<rect x="1.5" y="{bar_h}" width="{W - 17}" height="{screen_h + 1.5:.1f}" fill="{c["paper"]}" stroke="{c["ink"]}" stroke-width="3"/>'
+        + f'<rect x="0" y="{bar_h - 1.5}" width="{W - 14}" height="3" fill="{c["panel_bg"]}"/>'
+        + f'<svg x="{sx}" y="{sy}" width="{W - 20}" height="{screen_h:.1f}" viewBox="0 0 {VW} {VH}" overflow="hidden">'
+        f'<g class="clouds" fill="none" stroke="{c["ink"]}" stroke-width="2" opacity="0.35">{clouds}</g>'
+        f'<line x1="0" y1="{GROUND_Y}" x2="{VW}" y2="{GROUND_Y}" stroke="{c["ink"]}" stroke-width="2.5"/>'
+        f'<path class="ground" d="{dashes}" stroke="{c["ink"]}" stroke-width="2" stroke-linecap="round" opacity="0.5"/>'
+        f'<g class="track">{track}</g>{guy}</svg>'
     )
-    return doc(W, 200, body, "dodge.exe: a tiny ASCII runner hops over ERR, 404, NaN and TODO", css, mono=True)
+    cap_y = h + 22
+    body += text("Shipping, one bug at a time.", 2, cap_y, 13, c["muted"], wght=500)
+    css = (
+        f".track{{animation:track {T:.2f}s linear infinite}}@keyframes track{{to{{transform:translateX(-{L}px)}}}}"
+        f".ground{{animation:ground {60 / SPEED:.3f}s linear infinite}}@keyframes ground{{to{{transform:translateX(-60px)}}}}"
+        f".clouds{{animation:clouds {400 / (SPEED * 0.15):.2f}s linear infinite}}@keyframes clouds{{to{{transform:translateX(-400px)}}}}"
+        f".guy{{animation:jump {T:.2f}s linear infinite}}@keyframes jump{{{''.join(kf)}}}"
+        ".la{animation:step .22s steps(1,end) infinite}.lb{animation:step .22s steps(1,end) infinite reverse;opacity:0}"
+        "@keyframes step{0%{opacity:1}50%{opacity:0}}"
+        ".n{visibility:hidden}" + score_css
+        + "@media (prefers-reduced-motion:reduce){.guy{transform:translateY(-40px)}.n0{visibility:visible}}"
+    )
+    label = "dodge.exe: El runs along and hops over errors (ERR, 404, NaN, TODO, null), counting the bugs he dodges."
+    return doc(W, cap_y + 8, body, label, css)
+
+
+# ---------------------------------------------------------------- work-in-progress strip
+
+def wip(theme: str, cfg: dict) -> str:
+    c = PALETTES[theme]
+    w = cfg.get("wip", {})
+    h, band = 76, 18
+    period = 36
+    stripes = "".join(
+        f'<polygon points="{x},0 {x + period / 2},0 {x + period / 2 - band},{band} {x - band},{band}" fill="{c["accent"]}"/>'
+        for x in range(-period, W + 2 * period, period))
+
+    def tape(y, rot, cls):
+        return (f'<g transform="rotate({rot} {W / 2} {y + band / 2})"><rect x="-20" y="{y}" width="{W + 40}" height="{band}" fill="{c["ink"]}"/>'
+                f'<svg x="-20" y="{y}" width="{W + 40}" height="{band}" overflow="hidden"><g class="{cls}">{stripes}</g></svg></g>')
+
+    title, note = w.get("title", "WORK IN PROGRESS"), w.get("note", "")
+    tw = max(text_width(title, 26, 700, 70), text_width(note, 12, mono=True)) + 96
+    bx = (W - tw) / 2
+    body = (tape(6, -0.8, "s1") + tape(h - band - 6, 0.6, "s2")
+            + f'<rect x="{bx + 6}" y="14" width="{tw}" height="{h - 22}" fill="{c["ink"]}"/>'
+            + f'<rect x="{bx}" y="8" width="{tw}" height="{h - 22}" fill="{c["paper"]}" stroke="{c["ink"]}" stroke-width="3"/>'
+            + f'<circle class="blink" cx="{bx + 22}" cy="{30}" r="6" fill="{c["accent"]}"/>'
+            + text(title, bx + 38, 39, 26, c["ink"], wght=700, wdth=70)
+            + text(note, bx + 38, 58, 12, c["muted"], mono=True))
+    css = (f".s1{{animation:slide 2.4s linear infinite}}.s2{{animation:slide 2.4s linear infinite reverse}}"
+           f"@keyframes slide{{to{{transform:translateX({period}px)}}}}"
+           ".blink{animation:blink 1.2s steps(1) infinite}@keyframes blink{50%{opacity:.15}}")
+    return doc(W, h, body, f"{title}: {note}", css)
 
 
 # ---------------------------------------------------------------- section headings and footer
@@ -250,7 +328,7 @@ def footer(theme: str, cfg: dict) -> str:
     return doc(W, 36, body, "End of file. Thanks for scrolling. The full story is on the portfolio.")
 
 
-BUILDERS = {"banner": banner, "typing": typing, "about": about, "commit": commit, "dodge": dodge, "footer": footer}
+BUILDERS = {"wip": wip, "banner": banner, "typing": typing, "about": about, "commit": commit, "dodge": dodge, "footer": footer}
 for _key, _title in HEADINGS.items():
     BUILDERS[f"h-{_key}"] = (lambda t: (lambda theme, cfg: heading(theme, t)))(_title)
 

@@ -28,11 +28,13 @@ PALETTES = {
     "light": dict(
         page="#FFFFFF", card="#F4EFE4", paper="#FBF8F1", ink="#15130F", muted="#5E574D",
         rock="#E6DECF", accent="#00789A", on_ink_accent="#2BA5C6", white="#FFFFFF",
+        panel_bg="#15130F", on_panel="#FBF8F1",
         levels=["#E6DECF", "#B9DCE6", "#6FB8CD", "#2C93B0", "#00789A"],
     ),
     "dark": dict(
         page="#0D1117", card="#12110E", paper="#1B1915", ink="#EDE6D8", muted="#A69D8E",
         rock="#2C2821", accent="#2BA5C6", on_ink_accent="#00789A", white="#FFFFFF",
+        panel_bg="#211E19", on_panel="#EDE6D8",
         levels=["#2C2821", "#0E3A47", "#13617A", "#1F86A6", "#2BA5C6"],
     ),
 }
