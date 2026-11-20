@@ -50,7 +50,7 @@ REPO_FIELDS = """
   nameWithOwner name description url isPrivate pushedAt
   owner { login }
   primaryLanguage { name color }
-  defaultBranchRef { target { ... on Commit { messageHeadline } } }
+  defaultBranchRef { target { ... on Commit { history(first: 15) { nodes { messageHeadline parents { totalCount } } } } } }
 """
 
 
@@ -326,7 +326,10 @@ def repo_card(theme, repo, featured, i, user):
         pl = repo.get("primaryLanguage") or {}
         lang, color = pl.get("name", ""), pl.get("color") or c["muted"]
         tgt = ((repo.get("defaultBranchRef") or {}).get("target") or {})
-        msg = tgt.get("messageHeadline", "")
+        commits = (tgt.get("history") or {}).get("nodes") or []
+        # skip merge commits ("Merge pull request #2 from ..."): show the last real message
+        real = [n for n in commits if (n.get("parents") or {}).get("totalCount", 1) <= 1]
+        msg = (real or commits or [{}])[0].get("messageHeadline", "") or tgt.get("messageHeadline", "")
         when = ago(repo["pushedAt"]) if repo.get("pushedAt") else ""
         tag = featured.get("tag") or ("Private" if repo.get("isPrivate") else ("Team" if repo["owner"]["login"].lower() != user.lower() else "Public"))
     name_s = fit(name, 16, w - 120, wght=700)
